@@ -1,0 +1,87 @@
+! 清除所有数据
+/CLEAR,START
+
+! 开始一个新的数据库
+/FILNAME,2D_Lattice_Tensile,1
+
+! 进入前处理器
+/PREP7
+
+! 建立边长为 50 的正方形
+BLC4,0,0,50,50
+
+! 定义三角形顶点坐标
+K,100,0,5
+K,101,0,45
+K,102,40,45
+
+! 生成左上三角形
+A,100,101,102
+
+! 减去左上三角形
+ASBA,1,2
+
+! 以 y=x 为对称线生成右下三角形并减去
+ARSYM,X,2,2
+ASBA,1,3
+
+! 定义材料属性
+MP,EX,1,2e8
+MP,NUXY,1,0.3
+
+! 定义多线性等向强化模型
+TB,MISO,1
+TBDATA,1,4e5,0
+TBDATA,2,5e5,0.01
+TBDATA,3,20.5e6,10.01
+
+! 定义单元类型
+ET,1,PLANE183
+KEYOPT,1,3,2  ! 平面应变
+
+! 智能化网格划分
+ESIZE,0
+SMRTSIZE,2
+AMESH,ALL
+
+! 镜像操作
+ARSYM,X,ALL
+ARSYM,Y,ALL
+
+! 合并和压缩编号
+NUMMRG,ALL
+NUMCMP,ALL
+
+! 进入求解器
+/SOLU
+
+! 定义分析类型为静力分析
+ANTYPE,STATIC
+
+! 施加位移边界条件
+! 上、下侧节点在 y 方向固定
+NSEL,S,LOC,Y,-50
+D,ALL,UY,0
+NSEL,S,LOC,Y,50
+D,ALL,UY,0
+
+! 循环施加位移载荷
+NSUBST,1
+TIME,1
+DELTM,0.01,0.01,0.01
+KBC,0
+
+NSEL,S,LOC,X,-50
+DO,i,1,100
+    D,ALL,UX,i*0.01
+    SOLVE
+ENDDO
+
+NSEL,S,LOC,X,50
+DO,i,1,100
+    D,ALL,UX,i*0.01
+    SOLVE
+ENDDO
+
+! 结束求解
+FINISH

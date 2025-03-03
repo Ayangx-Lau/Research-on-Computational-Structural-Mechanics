@@ -1,0 +1,89 @@
+/filename, PointArraySimulation
+/title, 2D Point Array Structure Tensile Simulation
+
+! 定义几何区域
+/prep7
+! 创建外边界（正方形）
+k,1,0,0
+k,2,50,0
+k,3,50,50
+k,4,0,50
+a,1,2,3,4
+
+! 创建左上角三角形
+k,5,0,5
+k,6,0,45
+k,7,40,45
+a,5,6,7
+
+! 创建右下角三角形（通过 y=x 对称反射）
+k,8,5,0
+k,9,45,0
+k,10,45,40
+a,8,9,10
+
+! 减去区域
+boptn, rmvolu, 1
+vsbro, all
+boptn, rmvolu, 0
+
+! 定义材料属性
+mat,1
+mp,ex,1,2e8
+mp,prxy,1,0.3
+
+! 定义塑性行为
+tb,plas,1
+tbdata,1,4e5,0.0,0.01,5e5,10.01,20.5e6
+tbopt, multi,1
+
+! 定义网格属性
+et,1,plane183
+keyopt,1,3,1  ! 平面应变单元
+type,1
+mat,1
+
+! 智能化网格划分
+msshape,3
+mshtype,1
+vmesh,all
+vof,0.005    ! 设置网格等级为2（通过调整体积分数）
+
+! 镜像操作
+esym,0      ! x 方向镜像
+esym,1      ! y 方向镜像
+
+! 合并和压缩网格实体编号
+cmdele,all
+cm,all
+
+! 进入求解器模块
+/solu
+antype, static
+
+! 应用边界条件
+nall,u,all
+nsbw, all, , , , , 1, , , 1  ! 输出所有节点
+
+! 固定上、下侧节点在 y 方向
+nssi,y,0,all
+d,all,uy,0
+
+! 施加向右的位移
+d,all,ux,0.01,,,100
+
+! 求解
+solve
+finish
+
+! 后处理
+/post1
+plnsol,u,x,1
+plnsol,u,y,1
+
+! 输出结果
+/odbf, results.txt
+f,allsel, u, x, max
+f,allsel, u, y, max
+f,allsel, s, x, avg
+f,allsel, s, y, avg

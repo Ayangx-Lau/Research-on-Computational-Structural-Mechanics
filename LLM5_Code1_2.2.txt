@@ -1,0 +1,81 @@
+FINISH
+/CLEAR
+/FILNAME,Lattice_Simulation
+/TITLE,2D_Lattice_Tensile_Simulation
+
+! 几何建模
+/PREP7
+! 创建基础正方形
+RECTNG,0,50,0,50
+
+! 创建左上三角形关键点
+K,100,0,5,0
+K,101,0,45,0
+K,102,40,45,0
+L,100,101
+L,101,102
+L,102,100
+AL,ALL
+
+! 布尔减操作
+ASBA,1,2
+
+! 创建右下对称三角形
+ARSYM,X,2, , , ,1,0
+ASBA,1,3
+
+! 材料定义
+MP,EX,1,2e8      ! 弹性模量
+MP,PRXY,1,0.3    ! 泊松比
+
+! 塑性参数定义
+TB,MISO,1,,5     ! 多线性等向强化
+TBTEMP,0
+TBPT,,0.00,4e5   ! 初始屈服
+TBPT,,0.01,5e5   ! 塑性应变0.01
+TBPT,,10.01,20.5e6 ! 塑性应变10.01
+
+! 单元类型设置
+ET,1,PLANE183
+KEYOPT,1,3,2      ! 平面应变选项
+
+! 网格划分
+AATT,1,,1
+SMRTSIZE,2        ! 智能网格等级2
+AMESH,ALL
+
+! 镜像操作
+ARSYM,X,ALL       ! X轴镜像
+ARSYM,Y,ALL       ! Y轴镜像
+
+! 编号处理
+NUMMRG,KP         ! 合并关键点
+NUMMRG,NODE       ! 合并节点
+NUMCMP,NODE       ! 压缩节点编号
+
+! 求解设置
+/SOLU
+ANTYPE,STATIC     ! 静力分析
+
+! 位移边界条件
+NSEL,S,LOC,Y,0    ! 下边界
+NSEL,A,LOC,Y,100  ! 上边界
+D,ALL,UY,0        ! 固定Y方向
+ALLSEL
+
+! 循环加载设置
+*DO,STEP,1,100,1
+   TIME,STEP
+   NSUBST,1       ! 每个载荷步1个子步
+   KBC,0          ! 渐变载荷
+
+   NSEL,S,LOC,X,-50  ! 左侧节点
+   D,ALL,UX,-0.01*STEP
+   NSEL,S,LOC,X,50   ! 右侧节点
+   D,ALL,UX,0.01*STEP
+   ALLSEL
+
+   SOLVE
+*ENDDO
+
+FINISH           ! 退出求解器

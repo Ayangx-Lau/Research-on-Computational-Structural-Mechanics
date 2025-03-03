@@ -1,0 +1,78 @@
+! 清除所有数据
+/CLEAR,NOSTART
+/FILNAME,2D_Lattice_Tensile_Simulation,1
+
+! 建立几何模型
+/PREP7
+
+! 建立边长为 50 的正方形
+BLC4,0,0,50,50
+
+! 在正方形左上区域减去一个三角形
+K,100,0,5
+K,101,0,45
+K,102,40,45
+A,100,101,102
+ASBA,1,2
+
+! 以 y=x 为对称线在右下区域减去一个三角形
+K,103,5,0
+K,104,45,0
+K,105,45,40
+A,103,104,105
+ASBA,1,3
+
+! 定义材料属性
+MP,EX,1,2e8
+MP,NUXY,1,0.3
+
+! 定义基体材料塑性行为，多线性等向强化模型
+TB,MISO,1,1,3
+TBDATA,1,0,4e5
+TBDATA,2,0.01,5e5
+TBDATA,3,10.01,20.5e6
+
+! 定义单元类型
+ET,1,PLANE183
+KEYOPT,1,3,2  ! 平面应变
+
+! 智能化网格划分
+ESIZE,0
+SMRTSIZE,2
+AMESH,ALL
+
+! 镜像操作组成 100*100 且中心为原点的二维点阵结构模型
+ARSYM,X,ALL
+ARSYM,Y,ALL
+
+! 合并和压缩网格实体编号
+NUMMRG,ALL
+NUMCMP,ALL
+
+! 进入求解器模块
+/SOLU
+ANTYPE,STATIC  ! 静力分析
+
+! 施加位移边界条件
+! 上、下侧所有节点在 y 方向固定
+NSEL,S,LOC,Y,0
+D,ALL,UY,0
+NSEL,S,LOC,Y,100
+D,ALL,UY,0
+
+! 左、右两侧所有节点以每个位移增量 0.01 形式进行拉伸
+NSEL,S,LOC,X,0
+NSEL,A,LOC,X,100
+
+! 循环施加位移
+TIME,1
+NSUBST,100
+KBC,0  ! 渐变加载
+DELTA = 0.01
+DO I,1,100
+    D,ALL,UX,I*DELTA
+    SOLVE
+ENDDO
+
+! 结束求解
+FINISH

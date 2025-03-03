@@ -1,0 +1,90 @@
+! 输入基本参数
+clear
+! 设置模型单位
+/prep7
+et, 1, PLANE183        ! 设置单元类型为PLANE183（平面应变）
+mp, EX, 1, 2e8         ! 设置基体材料的弹性模量
+mp, PRXY, 1, 0.3       ! 设置泊松比
+! 定义塑性行为，多线性等向强化模型
+tb, PLASTIC, 1         ! 定义塑性模型
+tbdata, 4e5, 0.0       ! 初始塑性应变的应力为4e5
+tbdata, 5e5, 0.01      ! 塑性应变为0.01时，对应的应力为5e5
+tbdata, 20.5e6, 10.01  ! 塑性应变为10.01时，对应的应力为20.5e6
+
+! 创建正方形区域
+bld, 0, 0, 50, 50
+
+! 创建并减去第一个三角形区域
+n, 1, 0, 5
+n, 2, 0, 45
+n, 3, 40, 45
+l, 1, 2
+l, 2, 3
+l, 3, 1
+vsel, s, loc, y, 0, 45
+vsel, a
+vsf, 1, 1
+vdr, 0, 0, 0, 0
+
+! 创建并减去第二个三角形区域
+n, 4, 0, 5
+n, 5, 0, 45
+n, 6, 40, 45
+l, 4, 5
+l, 5, 6
+l, 6, 4
+vsel, s, loc, x, 45, 50
+vsel, a
+vsf, 2, 2
+vdr, 0, 0, 0, 0
+
+! 生成100*100的网格
+vmesh, 1
+
+! 网格划分
+esize, 2              ! 网格划分等级为2
+mshkey, 1             ! 使用智能网格划分方法
+vmesh, all            ! 对整个区域进行网格划分
+
+! 镜像操作
+! 左右镜像
+/axist, 1, 0, 0, 50   ! 设置镜像平面
+/axisym, 0            ! 启用对称
+vshift, -1            ! 进行镜像
+
+! 上下镜像
+/axist, 0, 1, 0, 50   ! 设置镜像平面
+/axisym, 0            ! 启用对称
+vshift, -1            ! 进行镜像
+
+! 合并网格实体编号并压缩
+*vget, nnode, node, 0, num
+node, all
+nsel, all
+vsel, all
+vcompress, all
+
+! 边界条件设置
+nsel, s, loc, y, 0, 0
+d, all, uy, 0        ! 上侧固定
+nsel, s, loc, y, 50, 50
+d, all, uy, 0        ! 下侧固定
+
+! x方向拉伸边界条件
+nsel, s, loc, x, 0, 0
+d, all, ux, 0        ! 初始位置
+nsel, s, loc, x, 50, 50
+d, all, ux, 0.01     ! 每个位移增量为0.01
+
+! 求解器模块：静力分析
+/solu
+antype, 0            ! 静力分析
+nlgeom, on           ! 启用几何非线性
+time, 100            ! 总时间步长100
+outres, all, all     ! 输出所有数据
+
+! 求解
+solve
+
+! 结束分析
+finish

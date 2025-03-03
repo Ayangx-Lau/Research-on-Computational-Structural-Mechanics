@@ -1,0 +1,78 @@
+FINISH
+/CLEAR
+/FILNAME,Lattice_Simulation
+/TITLE, 2D Lattice Structure Tensile Simulation
+
+/PREP7  
+
+! 创建几何模型
+BLC4,0,0,50,50    ! 创建基础正方形
+! 创建左上三角形区域
+K,100,0,5         ! 关键点1
+K,101,0,45        ! 关键点2
+K,102,40,45       ! 关键点3
+A,100,101,102     ! 创建三角形面
+! 创建右下对称三角形区域
+K,200,5,0         ! 对称关键点1
+K,201,45,0        ! 对称关键点2
+K,202,45,40       ! 对称关键点3
+A,200,201,202     ! 创建三角形面
+ASBA,1,2          ! 从基础正方形中减去左上三角形
+ASBA,4,3          ! 从剩余区域中减去右下三角形
+
+! 定义材料属性
+MP,EX,1,2E8       ! 弹性模量
+MP,NUXY,1,0.3     ! 泊松比
+
+! 定义塑性参数
+TB,PLASTIC,1,,3,MISO   ! MISO多线性等向强化
+TBTEMP,0                   ! 常温
+TBPT,, 0.00,  4E5         ! 初始屈服应力
+TBPT,, 0.01,  5E5         ! 塑性应变0.01时的应力
+TBPT,, 10.01, 20.5E6   ! 塑性应变1.01时的应力
+
+! 单元设置
+ET,1,PLANE183      ! 定义单元类型
+KEYOPT,1,3,2       ! 平面应变选项
+
+! 网格划分
+SMRTSIZE,2         ! 智能网格等级2
+AMESH,ALL          ! 划分所有面
+ALLSEL             ! 全选所有实体
+
+! 镜像处理
+ARSYM,X,ALL        ! 沿X轴镜像
+ARSYM,Y,ALL        ! 沿Y轴镜像
+
+!压缩节点编号
+NUMMRG,ALL         ! 节点合并 
+NUMCMP,ALL         ! 节点压缩
+
+! 边界条件
+NSEL,S,LOC,Y,50    ! 选择上侧节点
+D,ALL,UY,0            ! 约束Y向位移
+ALLSEL                  ! 全选
+  
+NSEL,S,LOC,Y,-50   ! 选择下侧节点
+D,ALL,UY,0            ! 约束Y向位移
+ALLSEL                  ! 全选
+
+/SOLU
+! 6. 载荷步设置
+ANTYPE,0              ! 静力分析
+*DO,STEP,1,100,1   ! 开始100步循环加载
+   TIME,STEP          ! 设置时间点
+
+   ! 施加位移载荷
+   NSEL,S,LOC,X,50
+   D,ALL,UX,0.01*STEP    ! 右侧位移
+   ALLSEL
+   NSEL,S,LOC,X,-50
+   D,ALL,UX,-0.01*STEP   ! 左侧位移
+   ALLSEL
+
+   SOLVE           ! 开始求解
+*ENDDO
+
+FINISH
+

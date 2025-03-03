@@ -1,0 +1,86 @@
+FINISH
+/CLEAR,START
+/FILNAME,Lattice_Structure
+/TITLE, 2D Lattice Structure Tension Simulation
+
+! ========== 前处理模块 ==========
+/PREP7
+
+! 创建基本几何
+BLC4,0,0,50,50          ! 创建50x50正方形
+
+! 创建左上三角形区域
+K,100,0,5              ! 关键点1
+K,101,0,45             ! 关键点2
+K,102,40,45            ! 关键点3
+A,100,101,102          ! 创建三角形面
+ASBA,1,2               ! 从正方形减去三角形
+
+! 创建右下对称三角形
+ARSYM,X,3,,,0,0,0      ! 关于Y轴对称操作
+ARSYM,Y,4,,,0,0,0      ! 关于X轴对称操作
+ASBA,1,3               ! 减去右下三角形
+
+! 定义材料属性
+MP,EX,1,2E8            ! 弹性模量
+MP,PRXY,1,0.3          ! 泊松比
+
+! 定义塑性材料参数
+TB,MISO,1,,3            ! 多线性等向强化模型
+TBTEMP,0
+TBPT,,0.00,4E5         ! 初始屈服应力
+TBPT,,0.01,5E5         ! 塑性应变0.01时的应力
+TBPT,,10.01,20.5E6     ! 大塑性应变时的应力
+
+! 定义单元类型
+ET,1,PLANE183          ! 平面应变单元
+KEYOPT,1,3,2           ! 平面应变选项
+
+! 网格划分
+ESIZE,2                ! 单元尺寸等级2
+AMESH,ALL              ! 划分所有面
+
+! 镜像操作生成完整结构
+ARSYM,X,ALL            ! X方向镜像
+ARSYM,Y,ALL            ! Y方向镜像
+
+! 编号整理操作
+NUMMRG,KP              ! 合并关键点
+NUMMRG,NODE            ! 合并节点
+NUMCMP,NODE            ! 压缩节点编号
+
+! ========== 求解模块 ==========
+/SOLU
+ANTYPE,STATIC          ! 静力分析
+NLGEOM,ON              ! 打开大变形选项
+
+! 定义边界条件
+NSEL,S,LOC,Y,-50       ! 选择下侧节点
+D,ALL,UY,0             ! Y方向固定约束
+NSEL,S,LOC,Y,50        ! 选择上侧节点
+D,ALL,UY,0             ! Y方向固定约束
+NSEL,ALL               ! 选择所有节点
+
+! 位移加载设置
+TIME,1                 ! 总时间设置为1
+NSUBST,100             ! 分100个子步
+KBC,0                  ! 渐变载荷加载方式
+
+! 施加循环位移载荷
+*DO,i,1,100
+   TIME,i/100          ! 时间增量0.01
+   NSEL,S,LOC,X,-50    ! 选择左侧边界节点
+   D,ALL,UX,-0.01*i    ! 施加向左位移
+   NSEL,S,LOC,X,50     ! 选择右侧边界节点
+   D,ALL,UX,0.01*i     ! 施加向右位移
+   SOLVE               ! 求解当前载荷步
+*ENDDO
+
+FINISH
+
+! ========== 后处理模块 ==========
+/POST1
+SET,LAST               ! 读取最后结果
+PLDISP,1               ! 显示变形形状
+PLESOL,S,EQV,0,1       ! 显示等效应力
+FINISH

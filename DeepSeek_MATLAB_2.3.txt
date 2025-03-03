@@ -1,0 +1,51 @@
+% 读取数据文件（假设数据保存在当前目录的input.mat文件中）
+load('input.mat', 'A');
+
+% 验证输入矩阵尺寸
+[rows, cols] = size(A);
+if rows ~= 1000 || cols ~= 9
+    error('输入矩阵尺寸不正确，应为1000×9矩阵');
+end
+
+% 数据标准化处理
+A_normalized = zscore(A);
+
+% 设置随机种子保证结果可重复
+rng(42);
+
+% 执行k-means聚类
+num_clusters = 30;
+[idx, ~] = kmeans(A_normalized, num_clusters, ...
+    'Replicates', 10, ...      % 重复10次取最佳结果
+    'MaxIter', 1000, ...       % 增加最大迭代次数
+    'Display', 'final');       % 显示最终结果
+
+% 创建分块cell数组
+cluster_cell = cell(num_clusters, 1);
+for k = 1:num_clusters
+    cluster_cell{k} = find(idx == k);
+end
+
+% 输出分块结果到文本文件
+output_dir = 'clustering_results';
+if ~exist(output_dir, 'dir')
+    mkdir(output_dir);
+end
+
+% 写入各分块单元编号
+for k = 1:num_clusters
+    data = cluster_cell{k};
+    filename = fullfile(output_dir, sprintf('cluster_%02d.txt', k));
+    
+    fid = fopen(filename, 'w');
+    fprintf(fid, '%.3f\n', data);
+    fclose(fid);
+end
+
+% 写入分块大小信息
+gsize = cellfun(@length, cluster_cell);
+dlmwrite(fullfile(output_dir, 'gsize.txt'), gsize', ...
+    'delimiter', ' ', ...
+    'precision', '%.3f');
+
+disp('聚类完成，结果已保存到clustering_results目录');

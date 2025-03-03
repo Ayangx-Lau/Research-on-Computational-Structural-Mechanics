@@ -1,0 +1,110 @@
+/CLEAR
+/PREP7
+
+! 定义几何区域
+! 创建正方形的基本矩形
+WPOIN, 0, 0
+WPOIN, 0, 50
+WPOIN, 50, 50
+WPOIN, 50, 0
+ARSQ, 0, 50, 0, 50
+
+! 减去左上三角形区域
+WPOIN, 0, 5
+WPOIN, 0, 45
+WPOIN, 40, 45
+ARBI, 0, 5, 0, 45, 40, 45, 40, 5
+ASBA, 1, 2
+
+! 减去右下对称三角形区域
+WPOIN, 5, 0
+WPOIN, 45, 0
+WPOIN, 45, 40
+ARBI, 5, 0, 45, 0, 45, 40, 5, 40
+ASBA, 1, 3
+
+! 定义材料属性
+MP, EX, 1, 2e8
+MP, PRXY, 1, 0.3
+
+! 定义多线性等向强化模型
+TB, BISO, 1, 1
+TBFIELD, STRESS
+TBPT, 1, 0, 0       ! 初始塑性应变对应的应力
+TBPT, 2, 0.01, 5e5  ! 塑性应变0.01对应的应力
+TBPT, 3, 10.01, 20.5e6 ! 塑性应变10.01对应的应力
+
+! 设置单元类型为PLANE183 (平面应变)
+ET, 1, PLANE183
+MP, EX, 1, 2e8
+MP, PRXY, 1, 0.3
+
+! 网格划分
+MSHAPE, 0, 3DMAP  ! 智能网格划分
+AESIZE, ALL, 2    ! 设置网格划分等级为2
+AMESH, ALL
+
+! 镜像操作
+! 先在Y方向镜像
+CSYS, 1   ! 切换到柱坐标系
+CM, M1, NODE, LOC, X, 50  ! 创建右半部分的节点集
+CMSEL, R, M1      ! 选择右半部分
+CM, M2, NODE      ! 创建右半部分的节点集
+COPY, M2, M2, BX, 100     ! 镜像到X方向位置100
+NUMMRG, ALL       ! 合并和压缩网格实体编号
+CMDELE, M1, M2    ! 删除临时组件
+
+! 再在X方向镜像
+CSYS, 1   ! 切换到柱坐标系
+CM, M3, NODE, LOC, Y, 50  ! 创建上半部分的节点集
+CMSEL, R, M3      ! 选择上半部分
+CM, M4, NODE      ! 创建上半部分的节点集
+COPY, M4, M4, BY, 100     ! 镜像到Y方向位置100
+NUMMRG, ALL       ! 合并和压缩网格实体编号
+CMDELE, M3, M4    ! 删除临时组件
+
+! 生成100*100的点阵结构
+*SET, NX, 10
+*SET, NY, 10
+*DO, I, 1, NX
+*DO, J, 1, NY
+CPY, CTRL, 1, I, J
+*ENDDO
+*ENDDO
+
+! 进入求解器模块
+/SOL
+
+! 设置分析类型为静力分析
+ANTYPE, 0
+
+! 施加边界条件
+NSEL, S, LOC, Y, 0   ! 下边界所有节点
+D, ALL, UY, 0       ! 固定Y方向位移
+
+NSEL, S, LOC, Y, 100 ! 上边界所有节点
+D, ALL, UY, 0       ! 固定Y方向位移
+
+! 施加X方向位移
+NSEL, S, LOC, X, 0   ! 左边界所有节点
+D, ALL, UX, 0       ! 固定X方向位移初始状态
+
+NSEL, S, LOC, X, 100 ! 右边界所有节点
+D, ALL, UX, 1       ! 施加向右的总位移为1
+
+! 分100个时间步施加位移
+*SET, NSTEPS, 100
+*SET, DUMMY, 1
+*DO, I, 1, NSTEPS
+*SET, DUMMY, I
+D, ALL, UX, (I-1)*0.01
+ Monroe, S
+*ENDDO
+
+! 求解
+SOLVE
+/POST1
+*VGET, TIME, 1, TIME  ! 获取时间步信息
+
+! 输出结果
+)))),正式结束 motivatecamatan

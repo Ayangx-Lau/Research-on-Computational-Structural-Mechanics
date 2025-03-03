@@ -1,0 +1,150 @@
+/CLEAR   ! 清除之前的模型
+/PREP7   ! 进入前处理模块
+
+! 定义参数
+LEN = 50   ! 正方形边长
+SEQX = 40  ! 左上三角形底边长度
+SEQY1 = 5  ! 左上三角形起点
+SEQY2 = 45 ! 左上三角形终点
+SYM_LINE = 1 ! y=x 对称线镜像
+
+
+! 创建基体正方形
+K,1,0,0
+K,2,LEN,0
+K,3,LEN,LEN
+K,4,0,LEN
+A,1,2,3,4    ! 创建正方形区域
+
+! 在正方形左上区域减去三角形
+K1, (0, SEQY1)
+K2, (0, SEQY2)
+K3, (SEQX, SEQY2)
+A1, K1, K2, K3
+BSUB, A, A1    ! 从正方形区域减去左上三角形
+
+! 对称镜像创建右下三角形（以y=x为对称线）
+*SET, SYM_ANGLE, 45 ! 对称角度
+*SET, TX, 0, 0, 1, 0, 0, 0, SYM_ANGLE ! 定义对称变换矩阵
+*SET, SYM_LINE_TYPE, 1 ! 沿Y=X线对称
+*SET, SYM_LINE_MIRR, SYM_LINE_TYPE ! 应用对称镜像
+
+! 创建右下三角形
+K4 = K3 + 1000
+K5 = K2 + 1000
+K6 = K1 + 1000
+A2, K4, K5, K6
+BSUB, A, A2    ! 从正方形区域减去右下三角形
+
+
+! 定义材料属性
+MP, EX, 1, 2e8    ! 弹性模量
+MP, PRXY, 1, 0.3   ! 泊松比
+
+! 定义塑性行为（多线性等向强化模型）
+TB, ISOTROPIC, 1, 1, 3
+TBDATA,1,0,4e5    ! 初始塑性应变（假设ξ=0）
+TBDATA,2,0.01,5e5
+TBDATA,3,10.01,20.5e6
+
+! 选择平面应变单元
+ET,1,PLANE183
+KEYOPT,1,3,2 ! 平面应变
+SizeMode, SMART, 2 ! 智能划分网格，等级为2
+AMESH, ALL    ! 生成网格
+
+
+! 镜像操作创建100x100点阵结构
+*SET, MIRR_XX, 1
+*SET, MIRR_YY, 1
+*SET, NUMSTX, 2
+*SET, NUMSTY, 2
+*SET, DX, 100
+*SET, DY, 100
+*SET, ORIGX, 0
+*SET, ORIGY, 0
+*SET, ANGLE1, 0
+*SET, ANGLE2, 0
+*SET, ANGLE3, 0
+*SET, nn, 1
+*SET, mm, 1
+
+! 第一次镜像（沿Y方向）
+CM, Temp_Comp, NODE
+CM, Temp_Comp, NODE, ALLDONE
+CM, SELECT, Temp_Comp, Y, 50
+CM, SELECT, Temp_Comp, Y, 0
+CM, SELECT, Temp_Comp, Y, 50, 100
+COPY, Temp_Comp, , , DY, 0, 100
+NUMMRG, ALL
+CM, SELECT, Temp_Comp, Y, -50
+CM, SELECT, Temp_Comp, Y, 0
+CM, SELECT, Temp_Comp, Y, -50, 100
+COPY, Temp_Comp, , , DY, 0, 100
+NUMMRG, ALL
+
+
+! 第二次镜像（沿X方向）
+CM, Temp_Comp, NODE, ALLDONE
+CM, SELECT, Temp_Comp, X, 50
+CM, SELECT, Temp_Comp, X, 0
+CM, SELECT, Temp_Comp, X, 50, 100
+COPY, Temp_Comp, DX, , 0, 100
+NUMMRG, ALL
+CM, SELECT, Temp_Comp, X, -50
+CM, SELECT, Temp_Comp, X, 0
+CM, SELECT, Temp_Comp, X, -50, 100
+COPY, Temp_Comp, DX, , 0, 100
+NUMMRG, ALL
+
+
+! 合并和压缩网格实体
+NUMMRG, NODE
+NUMMRG, ELEM
+NUMMRG, AREA
+NUMMRG, LINE
+NUMMRG, KPOINT
+NUMMRG, VOLUME
+NUMMRG, ALLDONE
+TYPE, COMPACT
+ENGSOL, 1
+
+
+/SOLU    ! 进入求解器模块
+ANTYPE, STATIC    ! 静力分析
+
+! 定义边界条件
+ALLSEL, ALL
+NSL, ,  , Y, 50  ! 选择上侧节点
+D, ALL, UY, 0     ! 固定Y方向位移
+ALLSEL, ALL
+NSL, ,  , Y, 0    ! 选择下侧节点
+D, ALL, UY, 0     ! 固定Y方向位移
+
+! 施加循环位移
+*SET, DELTA_U, 0.01
+*SET, NINC, 100
+*SET, TOTAL_U, 1.0
+*SET, INCR, TOTAL_U / NINC
+*SET, LOAD_STEP_U, INCR
+*SET, time = 1
+CNFINI
+*SET, time1, 0
+
+*DO, i, 1, NINC
+*time = time + 1
+*time1 = time1 + INCR
+ALLSEL, ALL
+NSL, ,  , X, 0  ! 选择左侧节点
+D, ALL, UX, time1
+NSL, ,  , X, 100  ! 选择右侧节点
+D, ALL, UX, time1
+SOLVE
+*ENDDO
+
+*FINISH    ! 完成求解
+
+/POST1    ! 进入后处理模块
+SET, LAST   ! 查看最后一段时间步的结果
+PLNSOL, U, X ! 绘制X方向位移云图
+PLNSOL, S, EQV ! 绘制等效应力云图

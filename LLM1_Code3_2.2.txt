@@ -1,0 +1,61 @@
+! 定义参数
+ET, 1, PLANE183              ! 定义单元类型 PLANE183，平面应变单元
+MP, EX, 1, 2E8               ! 定义弹性模量为 2e8
+MP, NUXY, 1, 0.3             ! 定义泊松比为 0.3
+
+! 定义塑性行为，设置多线性等向强化模型
+PLASTIC, 1, 0.000, 4E5       ! 定义初始塑性应变 0 对应应力 4e5
+PLASTIC, 1, 0.01, 5E5        ! 定义塑性应变 0.01 对应应力 5e5
+PLASTIC, 1, 10.01, 20.5E6    ! 定义塑性应变 10.01 对应应力 20.5e6
+
+! 创建几何体
+BLOCK, 0, 50, 0, 50          ! 创建一个边长为 50 的正方形区域，左下角为原点
+
+! 剔除左上角的三角形区域
+*CREATELINE, 0, 5, 0, 45     ! 三角形左边的直线
+*CREATELINE, 0, 45, 40, 45   ! 三角形底边的直线
+*CREATELINE, 40, 45, 0, 5    ! 三角形右边的直线
+*VGLUE, 0, 5, 0, 45, 40, 45, 0, 5   ! 创建三角形区域并去除
+
+! 通过对称操作在右下角创建另一个三角形区域
+*VGLUE, 50, 0, 50, 5, 45, 40, 5, 45   ! 创建右下角的三角形并去除
+
+! 网格划分
+VSEL, ALL                     ! 选择所有区域
+TYPE, 1                        ! 设置单元类型
+ESIZE, 2                       ! 设置网格尺寸为 2
+VMESH, ALL                     ! 网格划分
+
+! 镜像操作，X、Y方向分别进行镜像
+VSWEEP, X, 50                  ! X方向进行镜像
+VSWEEP, Y, 50                  ! Y方向进行镜像
+
+! 合并和压缩网格实体编号
+ALLSEL, ALL
+CM, AllNodes, NODE
+CM, AllElements, ELEM
+*CFOPEN, "merge_compress.txt", 'TXT'
+*VWRITE, 'MERGE AND COMPRESS OPERATIONS'
+*VWRITE, AllNodes, AllElements
+*CFCLSE
+
+! 设定边界条件
+! 在上、下侧所有节点固定y方向
+NSEL, S, LOC, Y, 0            ! 选择下边界
+D, ALL, FY, 0                 ! 固定y方向
+
+NSEL, S, LOC, Y, 50           ! 选择上边界
+D, ALL, FY, 0                 ! 固定y方向
+
+! 施加拉伸边界条件
+NSEL, S, LOC, X, 0            ! 选择左侧节点
+D, ALL, UX, 0                 ! 固定x方向
+
+NSEL, S, LOC, X, 50           ! 选择右侧节点
+D, ALL, UX, 0.01              ! 施加位移增量 0.01，每步
+
+! 时间步长设置
+NSTEP, 100                     ! 设置100个时间步
+SOLVE                          ! 开始求解
+FINISH                         ! 求解结束
+

@@ -1,0 +1,78 @@
+! 清除所有数据
+/CLEAR,START
+
+! 开始一个新的数据库
+/FILNAME,2D_Lattice_Tensile,1
+
+! 定义图形窗口大小和位置
+/WIN32,SIZE,800,600
+/WIN32,POS,100,100
+
+! 定义工作平面
+WPCSYS,-1,0
+
+! 建立边长为 50 的正方形，左下角为原点
+BLC4,0,0,50,50
+
+! 在正方形左上区域减去一个三角形
+K,100,0,5
+K,101,0,45
+K,102,40,45
+A,100,101,102
+ASBA,1,2
+
+! 以 y=x 为对称线在正方形右下区域减去一个三角形
+ARSYM,X,ALL
+ASBA,1,3
+
+! 定义材料属性
+MP,EX,1,2e8        ! 弹性模量
+MP,NUXY,1,0.3       ! 泊松比
+
+! 定义塑性行为，多线性等向强化模型
+TB,MISO,1,1,3       ! 定义多线性等向强化模型
+TBDATA,1,4e5,0      ! 初始塑性应变的应力
+TBDATA,2,5e5,0.01   ! 塑性应变为 0.01 时的应力
+TBDATA,3,20.5e6,10.01! 塑性应变为 10.01 时的应力
+
+! 定义单元类型
+ET,1,PLANE183
+KEYOPT,1,3,2        ! 平面应变
+
+! 智能化网格划分，等级为 2
+ESIZE,0
+SMRTSIZE,2
+AMESH,ALL
+
+! 进行 x、y 方向的镜像操作
+ARSYM,X,ALL
+ARSYM,Y,ALL
+
+! 合并和压缩网格实体编号
+NUMMRG,ALL
+NUMCMP,ALL
+
+! 进入求解器模块
+/SOLU
+
+! 定义分析类型为静力分析
+ANTYPE,STATIC
+
+! 施加位移边界条件
+NSEL,S,LOC,Y,0      ! 选择下侧所有节点
+D,ALL,UY,0          ! 下侧节点 y 方向固定
+NSEL,S,LOC,Y,100    ! 选择上侧所有节点
+D,ALL,UY,0          ! 上侧节点 y 方向固定
+
+! 循环施加 x 方向位移
+DO,I,1,100
+    TIME,I*0.01     ! 时间步
+    NSEL,S,LOC,X,0  ! 选择左侧所有节点
+    D,ALL,UX,0      ! 左侧节点 x 方向固定
+    NSEL,S,LOC,X,100! 选择右侧所有节点
+    D,ALL,UX,I*0.01 ! 右侧节点 x 方向施加位移
+    SOLVE           ! 求解
+ENDDO
+
+! 结束求解过程
+FINISH
